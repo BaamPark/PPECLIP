@@ -1,0 +1,7 @@
+data/
+lightning_logs/
+*.pyc
+*.bash
+*.pth
+*.ipynb
+*.pkl
