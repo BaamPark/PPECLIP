@@ -1,6 +1,7 @@
 import torch
 from utils.config import get_config
 import torch.optim as optim
+from timm.scheduler.cosine_lr import CosineLRScheduler
 
 cfg = get_config()
 
@@ -8,28 +9,23 @@ def make_optimizer(params, lr, weight_decay):
     optimizer = optim.SGD(params, lr, momentum=0.9, weight_decay=weight_decay)
     return optimizer
 
-def make_scheduler(optimizer, lr):
-    num_warmup_epochs = cfg['HYPERPARAM']['WARMUP_EPOCH']
-    total_epochs = cfg['HYPERPARAM']['NUM_EPOCH']
-    
-    def warmup_lambda(epoch):
-        if epoch < num_warmup_epochs:
-            return 0.01 + 0.99 * (epoch / num_warmup_epochs)  # Linearly increase LR
-        else:
-            return 1  # Continue with the cosine scheduler
-    
-    warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup_lambda)
-
-    cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+def make_scheduler(optimizer, lr, warmup_t):
+    return CosineLRScheduler(
         optimizer=optimizer,
-        T_max=total_epochs - num_warmup_epochs,
-        eta_min=lr * 0.01
-    )
-
-    return torch.optim.lr_scheduler.SequentialLR(
-        optimizer,
-        schedulers=[warmup_scheduler, cosine_scheduler],
-        milestones=[num_warmup_epochs]
+        t_initial=cfg['HYPERPARAM']['NUM_EPOCH'],
+        lr_min=0.002 * lr,
+        cycle_mul=1.0,             # No cycle expansion
+        cycle_decay=0.1,           # Final decay rate for LR
+        cycle_limit=1,             # Single cosine cycle
+        warmup_t=warmup_t,
+        warmup_lr_init=0.01 * lr,
+        warmup_prefix=False,
+        t_in_epochs=True,
+        noise_range_t=None,
+        noise_pct=0.67,
+        noise_std=1.0,
+        noise_seed=42,
+        k_decay=1.0
     )
 
 def freeze_model(model, clip_model):

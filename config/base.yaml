@@ -13,10 +13,6 @@ CLIP:
   USE_VISUAL_MASK: True
   PARAMETERS_TO_BE_UPDATED: ["prompt_deep", "prompt_text_deep", "part_class_embedding", "agg_bn", "softmax_model"]
 
-TRAINER:
-  ACCELERATOR: "gpu"
-  DEVICES: 1
-
 MODEL:
   NAME: 'base'
   ATTRIBUTE_NUM: 15
@@ -40,6 +36,10 @@ DATASET:
   RE_PROB: 0.0
   TRAIN_LABEL_MATRIX_DIR: 'data/label_mat/train_labels.pkl'
   TEST_LABEL_MATRIX_DIR: 'data/label_mat/val_labels.pkl'
+
+TRAINER:
+  ACCELERATOR: "gpu"
+  DEVICES: 1
 
 HYPERPARAM:
   # OPTIMIZER_NAME: 'AdamW'
