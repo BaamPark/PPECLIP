@@ -1,7 +1,9 @@
 data/
 lightning_logs/
 *.pyc
-*.bash
 *.pth
 *.ipynb
 *.pkl
+*.yaml
+
+!base.yaml

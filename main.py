@@ -1,28 +1,28 @@
-import torch
-import yaml
-import argparse
 from utils.misc import seed_everything
 from dataset.make_dataloader import make_dataloader
-from models.build import build_model, make_loss
-from models.promptpar import TransformerClassifier
 from models.model import LightningModel
 from utils.config import Config, get_config
-from utils.model_utils import freeze_model, make_optimizer, make_scheduler
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
+import torch
+import os
+import argparse
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--test", action="store_true")
+parser.add_argument("--config", type=str, required=True)
+parser.add_argument("--logdir", type=str, required=True)
+args = parser.parse_args()
 seed_everything(seed=42)
 
 def main():
-    config_path = "config/base.yaml"
-    log_name = "test"
-    Config.set_config_file(config_path)
+    Config.set_config_file(os.path.join("config", args.config))
     cfg = get_config()
 
     train_loader, val_loader, test_loader = make_dataloader()
     model = LightningModel()
 
-    logger = TensorBoardLogger("lightning_logs", name=log_name)
+    logger = TensorBoardLogger("lightning_logs", name=args.logdir)
     trainer = Trainer(
         accelerator=cfg["TRAINER"]["ACCELERATOR"],
         devices=cfg["TRAINER"]["DEVICES"],
@@ -30,11 +30,19 @@ def main():
         logger=logger
     )
 
-    trainer.fit(
-        model,
-        train_dataloaders=train_loader,
-        val_dataloaders=val_loader
-    )
+    if not args.test:
+        trainer.fit(
+            model,
+            train_dataloaders=train_loader,
+            val_dataloaders=val_loader
+        )
+
+    else:
+        trainer.validate(
+                model=model,
+                ckpt_path = "lightning_logs/test/version_0/checkpoints/epoch=49-step=77300.ckpt",
+                dataloaders=test_loader
+        )
 
 
 if __name__ == "__main__":
