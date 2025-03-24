@@ -13,19 +13,20 @@ def make_scheduler(optimizer, lr, warmup_t):
     return CosineLRScheduler(
         optimizer=optimizer,
         t_initial=cfg['HYPERPARAM']['NUM_EPOCH'],
-        lr_min=0.002 * lr,
-        cycle_mul=1.0,             # No cycle expansion
-        cycle_decay=0.1,           # Final decay rate for LR
-        cycle_limit=1,             # Single cosine cycle
+        lr_min=0.1 * lr,
+        cycle_mul=1.0, #default
+        cycle_decay=0.1, # no impact if cycle_limit=1
+        cycle_limit=1,
         warmup_t=warmup_t,
-        warmup_lr_init=0.01 * lr,
-        warmup_prefix=False,
-        t_in_epochs=True,
-        noise_range_t=None,
-        noise_pct=0.67,
-        noise_std=1.0,
-        noise_seed=42,
-        k_decay=1.0
+        # warmup_lr_init=0.1 * lr, 
+        warmup_lr_init= 0.1 * lr,
+        warmup_prefix=False, #default
+        t_in_epochs=True, #default
+        noise_range_t=None, #default
+        noise_pct=0.67, #default
+        noise_std=1.0, #default
+        noise_seed=42, #default
+        k_decay=1.0 #default
     )
 
 def freeze_model(model, clip_model):
