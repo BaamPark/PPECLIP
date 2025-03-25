@@ -3,7 +3,7 @@ import yaml
 #single ton class
 class Config:
     _instance = None  # Stores the singleton instance of Config
-    _config_file = "config/base.yaml"
+    _config_file = None
 
     def __new__(cls):
         #Checks if _instance is None. If no instance exists, create one

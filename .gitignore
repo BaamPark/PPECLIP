@@ -5,5 +5,6 @@ lightning_logs/
 *.ipynb
 *.pkl
 *.yaml
-
+launch.json
+run.sh
 !base.yaml

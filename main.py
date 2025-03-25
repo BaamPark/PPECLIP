@@ -1,13 +1,5 @@
-from utils.misc import seed_everything
-from dataset.make_dataloader import make_dataloader
-from models.model import LightningModel
-from utils.config import Config, get_config
-from pytorch_lightning import Trainer
-from pytorch_lightning.loggers import TensorBoardLogger
-import torch
-import os
 import argparse
-
+from utils.misc import seed_everything
 parser = argparse.ArgumentParser()
 parser.add_argument("--test", action="store_true")
 parser.add_argument("--config", type=str, required=True)
@@ -15,8 +7,17 @@ parser.add_argument("--logdir", type=str, required=True)
 args = parser.parse_args()
 seed_everything(seed=42)
 
+from utils.config import Config, get_config
+Config.set_config_file(args.config)
+
+from dataset.make_dataloader import make_dataloader
+from models.model import LightningModel
+from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import TensorBoardLogger
+import torch
+
+
 def main():
-    Config.set_config_file(os.path.join("config", args.config))
     cfg = get_config()
 
     train_loader, val_loader, test_loader = make_dataloader()
