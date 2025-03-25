@@ -1,4 +1,4 @@
-from dataset.PPEDataset import PPEmultilabelDataset
+from dataset.PPEDataset import *
 import torchvision.transforms as T
 from torch.utils.data import DataLoader
 import importlib

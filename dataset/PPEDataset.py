@@ -53,9 +53,56 @@ class PPEmultilabelDataset(Dataset):
         return len(self.json_data)
 
     def _encode_label(self, json_query):
-        # ppe_map = {'gc':0, 'ga':1, 'gi':2, 'pr':3, 'gg':4, 'fc':5, 'fi':6, 'sg':7, 'ea':8, 'nc':9, 'rc':10, 'ma':11, 'hchc':12, 'hcha':13, 'haha':14, 'hc':15, 'ha':16}
         ppe_map = {'gc':0, 'ga':1, 'gi':2, 'pr':3, 'gg':4, 'fc':5, 'ea':6, 'nc':7, 'rc':8, 'ma':9, 'hchc':10, 'hcha':11, 'haha':12, 'hc':13, 'ha':14}
-        # ppe_map = {'gc':0, 'ga':1, 'gi':2, 'pr':3, 'gg':4, 'fc':5, 'sg': 6, 'ea':7, 'nc':8, 'rc':9, 'ma':10, 'hchc':11, 'hcha':12, 'haha':13, 'hc':14, 'ha':15}
+        onehot_enocding = torch.zeros(len(ppe_map))
+        if json_query['gown'] != 'na':
+            gown_code = ppe_map[json_query['gown']]
+            onehot_enocding[gown_code] = 1
+
+        if json_query['eyewear'] != 'na':
+            eyewear_code = ppe_map[json_query['eyewear']]
+            onehot_enocding[eyewear_code] = 1
+
+        if json_query['mask'] != 'na':
+            mask_code = ppe_map[json_query['mask']]
+            onehot_enocding[mask_code] = 1
+
+        if json_query['glove'] != 'na':
+            glove_code = ppe_map[json_query['glove']]
+            onehot_enocding[glove_code] = 1
+
+        return onehot_enocding
+    
+
+class PPEmultilabelDataset12(Dataset):
+    def __init__(self, json_path, transform=None):
+        with open(json_path, 'r') as file:
+            json_data = json.load(file)
+
+        self.json_data = json_data
+        self.transform = transform
+        self.attributes = attr_words
+        self.attr_num = len(attr_words)
+
+
+    def __getitem__(self, index):
+        imagepath = self.json_data[index]['path']
+        img = Image.open(imagepath)
+        img = img.convert('RGB')
+        # head_img = img.crop(self.json_data[index]['headbox'])
+        cropped_img = img.crop(self.json_data[index]['bbox'])
+        if self.transform is not None:
+            cropped_img = self.transform(cropped_img)
+
+        attribute_label = self._encode_label(self.json_data[index])
+        return cropped_img, attribute_label
+    
+    def __len__(self):
+        return len(self.json_data)
+
+    def _encode_label(self, json_query):
+        #! here hc is glove complete (two gloves) and ha is glove absent (one or two bare hands)
+        ppe_map = {'gc':0, 'ga':1, 'gi':2, 'pr':3, 'gg':4, 'fc':5, 'ea':6, 'nc':7, 'rc':8, 'ma':9, 'hc':10, 'ha':11}
         onehot_enocding = torch.zeros(len(ppe_map))
         if json_query['gown'] != 'na':
             gown_code = ppe_map[json_query['gown']]
@@ -95,3 +142,15 @@ def get_transform():
     ])
 
     return train_transform, valid_transform
+
+if __name__ == "__main__":
+    dataset = PPEmultilabelDataset12("data/labels/attribute_label_split_train_0325.json")
+    # for img, lbl in dataset:
+    #     print(lbl)
+    #     break
+
+    import pickle
+    with open("data/label_mat/val_labels_12cls.pkl", "rb") as f:
+        mat = pickle.load(f)
+
+    print(mat.shape)

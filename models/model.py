@@ -28,6 +28,7 @@ class LightningModel(LightningModule):
         logit, final_similarity = self.model(x, clip_model=self.clip)
         return logit
 
+
     def training_step(self, batch, batch_idx):
         clip_optimizer, model_optimizer = self.optimizers()
         clip_scheduler, model_scheduler = self.lr_schedulers()
@@ -53,13 +54,7 @@ class LightningModel(LightningModule):
         model_optimizer.step()
         clip_optimizer.step()
 
-        # if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % cfg['HYPERPARAM']['NUM_EPOCH'] == 0:
-        #     model_scheduler.step()
-        #     clip_scheduler.step()
-
         self.log("train_step_loss", loss, on_step=True, on_epoch=False)
-        # self.log("lr_model", model_optimizer.param_groups[0]["lr"], on_step=True)
-        # self.log("lr_clip", clip_optimizer.param_groups[0]["lr"], on_step=True)
         self.log("lr_model", model_scheduler._get_lr(self.current_epoch)[0], on_step=True)
         self.log("lr_clip", clip_scheduler._get_lr(self.current_epoch)[0], on_step=True)
         # self.scheduler.get_lr()[0], on_step=True
@@ -70,7 +65,7 @@ class LightningModel(LightningModule):
         img, lbl = batch
         logits, similarity = self.model(img, self.clip)
 
-        if cfg['CLIP']['USE_GLOBAL_LOCAL_SIMILARITY']:
+        if cfg['CLIP']['USE_REGION_SPLIT']:
             classifier_loss = self.criterion(logits, lbl)
             clip_loss = self.criterion(similarity, lbl)
             loss = classifier_loss + 0.5 * clip_loss
@@ -89,14 +84,15 @@ class LightningModel(LightningModule):
         self.log('val_step_loss', loss, on_step=True, on_epoch=False)
         self.log(f"val_epoch_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
+
     def on_validation_epoch_end(self):
         y_pred = self.validation_step_outputs["output"] #[[0.3, 0.1, 0.6], [0.2, 0.7, 0.1]]
         y_true = self.validation_step_outputs["target"] #[2, 1]
-        f1 = MultilabelF1Score(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average='none').to(self.device) #https://lightning.ai/docs/torchmetrics/stable/classification/f1_score.html#:~:text=target)%0Atensor(%5B0.6667%2C%200.6667%2C%201.0000%5D)-,Example%20(preds%20is%20float%20tensor)%3A,-%3E%3E%3E
-        auroc = MultilabelAUROC(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average='none').to(self.device)
-        recall = MultilabelRecall(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average='none').to(self.device)
-        specificity = MultilabelSpecificity(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average='none').to(self.device)
-        precision = MultilabelPrecision(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average='none').to(self.device)
+        f1 = MultilabelF1Score(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], threshold=0.5, average=None).to(self.device) #https://lightning.ai/docs/torchmetrics/stable/classification/f1_score.html#:~:text=target)%0Atensor(%5B0.6667%2C%200.6667%2C%201.0000%5D)-,Example%20(preds%20is%20float%20tensor)%3A,-%3E%3E%3E
+        auroc = MultilabelAUROC(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
+        recall = MultilabelRecall(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
+        specificity = MultilabelSpecificity(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
+        precision = MultilabelPrecision(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
         # Compute metrics
         y_true = y_true.to(torch.long)
         F1 = f1(y_pred, y_true)
@@ -105,12 +101,12 @@ class LightningModel(LightningModule):
         SPECIFICITY = specificity(y_pred, y_true)
         PRECISION = precision(y_pred, y_true)
 
-        # for i, (each_f1, each_auroc, each_recall, each_specificity, each_precision) in enumerate(zip(F1, AUROC, RECALL, SPECIFICITY, PRECISION)):
-        #     self.log(f"val_F1_task{i}", each_f1)
-        #     self.log(f"val_auc_task{i}", each_auroc)
-        #     self.log(f"val_rec_task{i}", each_recall)
-        #     self.log(f"val_spe_task{i}", each_specificity)
-        #     self.log(f"val_pre_task{i}", each_precision)
+        for i, (each_f1, each_auroc, each_recall, each_specificity, each_precision) in enumerate(zip(F1, AUROC, RECALL, SPECIFICITY, PRECISION)):
+            self.log(f"val_F1_cls{i}", each_f1)
+            # self.log(f"val_auc_cls{i}", each_auroc)
+            self.log(f"val_rec_cls{i}", each_recall)
+            # self.log(f"val_spe_cls{i}", each_specificity)
+            self.log(f"val_pre_cls{i}", each_precision)
 
         self.log("val_mean_F1", F1.mean())
         self.log("val_mean_auc", AUROC.mean())
@@ -118,17 +114,15 @@ class LightningModel(LightningModule):
         self.log("val_mean_spe", SPECIFICITY.mean())
         self.log("val_mean_pre", PRECISION.mean())
 
-        #flush validation_step_output
+        # flush validation_step_output
         self.validation_step_outputs = {"target": [], 
                                         "output": []}
     
     def configure_optimizers(self): #https://pytorch-lightning.readthedocs.io/en/1.5.10/common/optimizers.html#use-multiple-optimizers-like-gans:~:text=and%20step.-,Use%20multiple%20optimizers%20(like%20GANs),-To%20use%20multiple
         clip_optimizer = make_optimizer(self.clip_params, cfg['HYPERPARAM']['CLIP_LR'], cfg['HYPERPARAM']['CLIP_WEIGHT_DECAY'])
-        clip_scheduler = make_scheduler(clip_optimizer, cfg['HYPERPARAM']['CLIP_LR'], warmup_t=10)
+        clip_scheduler = make_scheduler(clip_optimizer, cfg['HYPERPARAM']['CLIP_LR'], warmup_t=cfg['HYPERPARAM']['WARMUP_EPOCH'])
         model_optimizer = make_optimizer(self.model_params, cfg['HYPERPARAM']['LR'], cfg['HYPERPARAM']['WEIGHT_DECAY'])
-        model_scheduler = make_scheduler(model_optimizer, cfg['HYPERPARAM']['LR'], warmup_t=5)
-
-        # return [clip_optimizer, model_optimizer], [clip_scheduler, model_scheduler]
+        model_scheduler = make_scheduler(model_optimizer, cfg['HYPERPARAM']['LR'], warmup_t=cfg['HYPERPARAM']['WARMUP_EPOCH'])
         return [clip_optimizer, model_optimizer], [{"scheduler": clip_scheduler, "interval": "epoch"}, {"scheduler": model_scheduler, "interval": "epoch"}]
     
     #need to override when using timm scheduler or custom scheulder
