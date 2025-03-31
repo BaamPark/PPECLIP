@@ -25,6 +25,7 @@ MODEL:
 
 DATASET:
   NAMES: 'PPEmultilabelDataset'
+  PPE_MAPS: {'gc':0, 'ga':1, 'gi':2, 'pr':3, 'gg':4, 'fc':5, 'ea':6, 'nc':7, 'rc':8, 'ma':9, 'hchc':10, 'hcha':11, 'haha':12, 'hc':13, 'ha':14}
   TRAIN_LABEL_PATH: "data/labels/attribute_label_split_train_0303_sgIsEa.json"
   VAL_LABEL_PATH: "data/labels/attribute_label_test_0303_sgIsEa.json"
   TEST_LABEL_PATH: "data/labels/attribute_label_test_0303_sgIsEa.json"

@@ -5,26 +5,9 @@ import json
 from torch.utils.data.dataset import Dataset
 import torchvision.transforms as T
 import numpy as np
+from utils.config import get_config
 
-
-attr_words = [
-    'A person wearing a gown completely',
-    'A person not wearing a gown',
-    'A person wearing a gown incorrectly',
-    'A person wearing a helmet',
-    'A person wearing goggles',
-    'A person wearing a face shield',
-    'A person not wearing eyewear',
-    'A person wearing an N95 mask',
-    'A person wearing a regular mask',
-    'A person not wearing a mask',
-    'A person with two visible hands wearing two gloves',
-    'A person with one visible hand wearing one glove',
-    'A person with two visible hands wearing no gloves',
-    'A person with one visible glove, the other hand not visible',
-    'A person with one visible hand, the other hand not visible'
-]
-
+cfg = get_config()
 
 class PPEmultilabelDataset(Dataset):
     def __init__(self, json_path, transform=None):
@@ -33,9 +16,8 @@ class PPEmultilabelDataset(Dataset):
 
         self.json_data = json_data
         self.transform = transform
-        self.attributes = attr_words
-        self.attr_num = len(attr_words)
-
+        self.attributes = cfg['ATTRIBUTES']
+        self.attr_num = len(cfg['ATTRIBUTES'])
 
     def __getitem__(self, index):
         imagepath = self.json_data[index]['path']
@@ -53,7 +35,7 @@ class PPEmultilabelDataset(Dataset):
         return len(self.json_data)
 
     def _encode_label(self, json_query):
-        ppe_map = {'gc':0, 'ga':1, 'gi':2, 'pr':3, 'gg':4, 'fc':5, 'ea':6, 'nc':7, 'rc':8, 'ma':9, 'hchc':10, 'hcha':11, 'haha':12, 'hc':13, 'ha':14}
+        ppe_map = cfg['DATASET']['PPE_MAPS']
         onehot_enocding = torch.zeros(len(ppe_map))
         if json_query['gown'] != 'na':
             gown_code = ppe_map[json_query['gown']]
@@ -73,54 +55,6 @@ class PPEmultilabelDataset(Dataset):
 
         return onehot_enocding
     
-
-class PPEmultilabelDataset12(Dataset):
-    def __init__(self, json_path, transform=None):
-        with open(json_path, 'r') as file:
-            json_data = json.load(file)
-
-        self.json_data = json_data
-        self.transform = transform
-        self.attributes = attr_words
-        self.attr_num = len(attr_words)
-
-
-    def __getitem__(self, index):
-        imagepath = self.json_data[index]['path']
-        img = Image.open(imagepath)
-        img = img.convert('RGB')
-        # head_img = img.crop(self.json_data[index]['headbox'])
-        cropped_img = img.crop(self.json_data[index]['bbox'])
-        if self.transform is not None:
-            cropped_img = self.transform(cropped_img)
-
-        attribute_label = self._encode_label(self.json_data[index])
-        return cropped_img, attribute_label
-    
-    def __len__(self):
-        return len(self.json_data)
-
-    def _encode_label(self, json_query):
-        #! here hc is glove complete (two gloves) and ha is glove absent (one or two bare hands)
-        ppe_map = {'gc':0, 'ga':1, 'gi':2, 'pr':3, 'gg':4, 'fc':5, 'ea':6, 'nc':7, 'rc':8, 'ma':9, 'hc':10, 'ha':11}
-        onehot_enocding = torch.zeros(len(ppe_map))
-        if json_query['gown'] != 'na':
-            gown_code = ppe_map[json_query['gown']]
-            onehot_enocding[gown_code] = 1
-
-        if json_query['eyewear'] != 'na':
-            eyewear_code = ppe_map[json_query['eyewear']]
-            onehot_enocding[eyewear_code] = 1
-
-        if json_query['mask'] != 'na':
-            mask_code = ppe_map[json_query['mask']]
-            onehot_enocding[mask_code] = 1
-
-        if json_query['glove'] != 'na':
-            glove_code = ppe_map[json_query['glove']]
-            onehot_enocding[glove_code] = 1
-
-        return onehot_enocding
     
 def get_transform():
     height = 224
@@ -142,15 +76,3 @@ def get_transform():
     ])
 
     return train_transform, valid_transform
-
-if __name__ == "__main__":
-    dataset = PPEmultilabelDataset12("data/labels/attribute_label_split_train_0325.json")
-    # for img, lbl in dataset:
-    #     print(lbl)
-    #     break
-
-    import pickle
-    with open("data/label_mat/val_labels_12cls.pkl", "rb") as f:
-        mat = pickle.load(f)
-
-    print(mat.shape)
