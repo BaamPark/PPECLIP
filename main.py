@@ -14,6 +14,7 @@ from dataset.make_dataloader import make_dataloader
 from models.model import LightningModel
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 import torch
 
 
@@ -39,9 +40,9 @@ def main():
         )
 
     else:
-        trainer.validate(
+        trainer.test(
                 model=model,
-                ckpt_path = "lightning_logs/test/version_0/checkpoints/epoch=49-step=77300.ckpt",
+                ckpt_path = cfg["TRAINER"]["CHECKPOINT"],
                 dataloaders=test_loader
         )
 

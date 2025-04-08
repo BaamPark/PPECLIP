@@ -314,7 +314,7 @@ class VisionTransformer(nn.Module):#ViTB-32 32,768,12,12,512
         x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width] 
         x = torch.cat([self.class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device), x], dim=1)  # shape = [*, grid ** 2 + 1, width]
 
-        x = x + self.positional_embedding.to(x.dtype)
+        x = x + self.positional_embedding.to(x.dtype) #256 -> 257
 
         if self.cfg_vision['USE_REGION_SPLIT'] :
             x = torch.cat([x[:,:1],self.part_class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device)
