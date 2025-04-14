@@ -11,7 +11,8 @@ from torch import nn
 from torch.nn import Conv2d, Dropout
 from utils.config import get_config
 
-global_cfg = get_config()
+cfg = get_config()
+cfg_clip = cfg['CLIP']
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -206,27 +207,26 @@ class Transformer(nn.Module):
     def __init__(self, width: int, layers: int, heads: int, attn_mask: torch.Tensor = None,
                  VorT:bool=False, prompt_num:int=25, part_num:list=None, row_patch_num:int=0):
         super().__init__()
-        self.cfg_text = global_cfg['CLIP']
-        self.VorT=VorT
+        self.VorT=VorT #Vision or text; true is visual encoder; false is textual encoder
         self.width = width
         self.layers = layers
         self.prompt_num = prompt_num
         self.part_num = part_num
-        self.div_prompt_num = int(prompt_num/(self.cfg_text['REGION_SPLIT_NUM']+1))
+        self.div_prompt_num = int(prompt_num/(cfg_clip['REGION_SPLIT_NUM']+1))
         self.vis_len= prompt_num + 5 + row_patch_num**2
         self.prefix_len = prompt_num + 5 
         if self.VorT:
             val = math.sqrt(6. / float(3 * reduce(mul, (14,14), 1) + width))
-            self.prompt_deep=nn.Parameter(torch.zeros(self.cfg_text['VISUAL_PROMPT_DEPTH'], prompt_num,1,width))
+            self.prompt_deep=nn.Parameter(torch.zeros(cfg_clip['VISUAL_PROMPT_DEPTH'], prompt_num,1,width))
             nn.init.uniform_(self.prompt_deep.data, -val,val)
         else:
             val = math.sqrt(6. / float(3 * reduce(mul, (14,14), 1) + width))
-            self.prompt_text_deep=nn.Parameter(torch.zeros(layers,prompt_num,global_cfg['MODEL']['ATTRIBUTE_NUM'],width))
+            self.prompt_text_deep=nn.Parameter(torch.zeros(cfg_clip['TEXT_PROMPT_DEPTH'],prompt_num,cfg['MODEL']['ATTRIBUTE_NUM'],width))
             nn.init.uniform_(self.prompt_text_deep.data, -val,val)
 
         self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask) for _ in range(layers)])
 
-        if self.VorT==True and self.cfg_text['USE_REGION_SPLIT'] and self.cfg_text['USE_VISUAL_MASK']:
+        if self.VorT==True and cfg_clip['USE_REGION_SPLIT'] and cfg_clip['USE_VISUAL_MASK']:
             print('bulid visual mask')
             self.visual_mask = self.build_visual_mask()
         else:
@@ -237,27 +237,30 @@ class Transformer(nn.Module):
         attnmap=[]
         if self.VorT==True:
             for layer,block in enumerate(self.resblocks):
-                if self.cfg_text['USE_REGION_SPLIT'] :
-                    if layer < self.cfg_text['VISUAL_PROMPT_DEPTH']:
-                        for div in range(self.cfg_text['REGION_SPLIT_NUM'] + 1):
-                            start_idx = 1 if div == 0 else self.div_prompt_num * div + div + 1
-                            prompts = self.prompt_deep[layer, self.div_prompt_num * div: self.div_prompt_num * (div + 1)]
-                            x = torch.cat([x[:start_idx], prompts.repeat(1, x.shape[1], 1).to(x.device).to(x.dtype), x[start_idx if layer == 0 else start_idx + self.div_prompt_num:]], dim=0)
-                        assert x.size() == (self.vis_len, bs, self.width), f'The Shape of image features is {x.size()}'
-                else:
-                    if layer < self.cfg_text['VISUAL_PROMPT_DEPTH']:
-                        x = torch.cat([x[:1], self.prompt_deep[layer].repeat(1, x.shape[1], 1).to(x.device).to(x.dtype), x[1 if layer == 0 else self.prompt_num + 1:]], dim=0)
+                if cfg_clip['USE_VISUAL_PROMPT']:
+                    if cfg_clip['USE_REGION_SPLIT'] :
+                        if layer < cfg_clip['VISUAL_PROMPT_DEPTH']:
+                            for div in range(cfg_clip['REGION_SPLIT_NUM'] + 1):
+                                start_idx = 1 if div == 0 else self.div_prompt_num * div + div + 1
+                                prompts = self.prompt_deep[layer, self.div_prompt_num * div: self.div_prompt_num * (div + 1)]
+                                x = torch.cat([x[:start_idx], prompts.repeat(1, x.shape[1], 1).to(x.device).to(x.dtype), x[start_idx if layer == 0 else start_idx + self.div_prompt_num:]], dim=0)
+                            assert x.size() == (self.vis_len, bs, self.width), f'The Shape of image features is {x.size()}'
+                    else:
+                        if layer < cfg_clip['VISUAL_PROMPT_DEPTH']:
+                            x = torch.cat([x[:1], self.prompt_deep[layer].repeat(1, x.shape[1], 1).to(x.device).to(x.dtype), x[1 if layer == 0 else self.prompt_num + 1:]], dim=0)
                 x,attn_output_weights = block(x,self.visual_mask)   
             all_class = None
-            if self.cfg_text['USE_REGION_SPLIT']:
-                all_class = torch.stack([x[1 if idx == 0 else self.div_prompt_num * idx + idx + 1 - 1] for idx in range(self.cfg_text['REGION_SPLIT_NUM'] + 1)]).permute(1, 0, 2)
+            if cfg_clip['USE_REGION_SPLIT']:
+                all_class = torch.stack([x[1 if idx == 0 else self.div_prompt_num * idx + idx + 1 - 1] for idx in range(cfg_clip['REGION_SPLIT_NUM'] + 1)]).permute(1, 0, 2)
+            
             return x, all_class,attn_output_weights
         else:
             for layer,block in enumerate(self.resblocks):
-                if self.cfg_text['USE_TEXT_PROMPT']:
+                if cfg_clip['USE_TEXT_PROMPT']:
                     if layer == 0 :
                         x=torch.cat([x,self.prompt_text_deep[0].to(x.device).to(x.dtype)],dim=0) 
-                    x=torch.cat([x[:77,:,:],self.prompt_text_deep[layer].to(x.dtype).to(x.device)],dim=0)
+                    if layer < cfg_clip['TEXT_PROMPT_DEPTH']:
+                        x=torch.cat([x[:77,:,:],self.prompt_text_deep[layer].to(x.dtype).to(x.device)],dim=0)
                 x,_ = block(x)
             return x
     def build_visual_mask(self):
@@ -288,7 +291,6 @@ class Transformer(nn.Module):
 class VisionTransformer(nn.Module):#ViTB-32 32,768,12,12,512
     def __init__(self, input_resolution: int, patch_size: int, width: int, layers: int, heads: int, output_dim: int, prompt_num:int):
         super().__init__()
-        self.cfg_vision = global_cfg['CLIP']
         self.input_resolution = input_resolution
         self.output_dim = output_dim
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=width, kernel_size=patch_size, stride=patch_size, bias=False)
@@ -298,11 +300,11 @@ class VisionTransformer(nn.Module):#ViTB-32 32,768,12,12,512
         self.ln_pre = LayerNorm(width)
         row_patch_num = (input_resolution // patch_size)
         
-        base_part_row_num = int(row_patch_num // self.cfg_vision['REGION_SPLIT_NUM']) + int(self.cfg_vision['REGION_SPLIT_OVERLAPPING_ROW_NUM'] // 2)#假设div_num为4 则part_row_num = [5,6,6,5] 0-4 3-8 7-12 11-15
-        self.part_row_num = [base_part_row_num+int(self.cfg_vision['REGION_SPLIT_OVERLAPPING_ROW_NUM']//2) if row!=0 and row!=self.cfg_vision['REGION_SPLIT_NUM']-1 else base_part_row_num for row in range(self.cfg_vision['REGION_SPLIT_NUM'])]
+        base_part_row_num = int(row_patch_num // cfg_clip['REGION_SPLIT_NUM']) + int(cfg_clip['REGION_SPLIT_OVERLAPPING_ROW_NUM'] // 2)#假设div_num为4 则part_row_num = [5,6,6,5] 0-4 3-8 7-12 11-15
+        self.part_row_num = [base_part_row_num+int(cfg_clip['REGION_SPLIT_OVERLAPPING_ROW_NUM']//2) if row!=0 and row!=cfg_clip['REGION_SPLIT_NUM']-1 else base_part_row_num for row in range(cfg_clip['REGION_SPLIT_NUM'])]
         self.part_num = [part_row * row_patch_num for part_row in self.part_row_num] # 80个token
-        if self.cfg_vision['USE_REGION_SPLIT'] :
-            self.part_class_embedding = nn.Parameter(scale * torch.randn((self.cfg_vision["REGION_SPLIT_NUM"],width)))
+        if cfg_clip['USE_REGION_SPLIT'] :
+            self.part_class_embedding = nn.Parameter(scale * torch.randn((cfg_clip["REGION_SPLIT_NUM"],width)))
         self.transformer = Transformer(width, layers, heads,VorT=True,prompt_num=prompt_num,part_num=self.part_num,row_patch_num=row_patch_num)#24层
         self.ln_post = LayerNorm(width)
         self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
@@ -316,7 +318,7 @@ class VisionTransformer(nn.Module):#ViTB-32 32,768,12,12,512
 
         x = x + self.positional_embedding.to(x.dtype) #256 -> 257
 
-        if self.cfg_vision['USE_REGION_SPLIT'] :
+        if cfg_clip['USE_REGION_SPLIT'] :
             x = torch.cat([x[:,:1],self.part_class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device)
                                 ,x[:,1:]],dim=1)
         x = self.ln_pre(x)
@@ -358,14 +360,13 @@ class CLIP(nn.Module):
 
         super().__init__()
 
-        self.cfg_clip = global_cfg['CLIP']
-        self.vis_prompt_len=self.cfg_clip['VISUAL_PROMPT_NUM']
-        self.text_prompt_len=self.cfg_clip['TEXT_PROMPT_NUM']
+        self.vis_prompt_len=cfg_clip['VISUAL_PROMPT_NUM']
+        self.text_prompt_len=cfg_clip['TEXT_PROMPT_NUM']
         self.context_length = context_length
         
-        if self.cfg_clip['USE_GLOBAL_LOCAL_SIMILARITY'] :
+        if cfg_clip['USE_GLOBAL_LOCAL_SIMILARITY'] :
             self.softmax_model = SoftmaxWithTemperature()
-            self.agg_bn = nn.BatchNorm1d(global_cfg['MODEL']['ATTRIBUTE_NUM'])
+            self.agg_bn = nn.BatchNorm1d(cfg['MODEL']['ATTRIBUTE_NUM'])
         
         if isinstance(vision_layers, (tuple, list)):
             vision_heads = vision_width * 32 // 64
@@ -388,7 +389,7 @@ class CLIP(nn.Module):
                 prompt_num=self.vis_prompt_len
             )
         
-        self.text_prompt_len=self.text_prompt_len if self.cfg_clip['USE_TEXT_PROMPT'] else 0
+        self.text_prompt_len=self.text_prompt_len if cfg_clip['USE_TEXT_PROMPT'] else 0
         self.transformer = Transformer(
             width=transformer_width,
             layers=transformer_layers,
@@ -483,7 +484,7 @@ class CLIP(nn.Module):
         for logits_local in local_similarity:
             max_values, _ = torch.max(logits_local, dim=0)#max_values.detach().numpy()
             min_values, _ = torch.min(logits_local, dim=0)
-            gama=max_values > self.cfg_clip['GLOBAL_LOCAL_SIMILARITY_THRESHOLD'] #create binary mask
+            gama=max_values > cfg_clip['GLOBAL_LOCAL_SIMILARITY_THRESHOLD'] #create binary mask
             similarity_aggregate = gama.float() * max_values + (1 - gama.float()) * min_values    
 
         final_similarity = (similarity_aggregate + global_similarity) / 2   
