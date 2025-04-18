@@ -18,11 +18,7 @@ def build_model():
                                               download_root='data')
             
             # clip_model = build_clip(checkpoint['clip_model'])
-            model = TransformerClassifier(
-                cfg_model=cfg['MODEL'], 
-                cfg_clip=cfg['CLIP'], 
-                cfg_attributes=cfg['ATTRIBUTES'], 
-                clip_model=clip_model)
+            model = TransformerClassifier(clip_model=clip_model)
             
             # model.load_state_dict(checkpoint['model_state_dict'], strict=False)
 

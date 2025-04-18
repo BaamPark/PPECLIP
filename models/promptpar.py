@@ -2,10 +2,14 @@ import torch.nn as nn
 import torch
 from models.clip_utils import tokenize
 from models.vit import *
+from utils.config import get_config
 
+cfg = get_config()
+cfg_model = cfg['MODEL']
+cfg_clip = cfg['CLIP']
 
 class TransformerClassifier(nn.Module):
-    def __init__(self, cfg_model:dict, cfg_clip:dict, cfg_attributes:list, clip_model):
+    def __init__(self, clip_model):
         super().__init__()
         super().__init__()
 
@@ -16,15 +20,16 @@ class TransformerClassifier(nn.Module):
         self.norm = vit.norm
         self.weight_layer = nn.ModuleList([nn.Linear(cfg_model['TEXT_DIMENSION'], 1) for i in range(self.attr_num)])
         self.dim = cfg_model['TEXT_DIMENSION']
-        self.text = tokenize(cfg_attributes).to("cuda")
+        self.text = tokenize(cfg['ATTRIBUTES']).to("cuda")
         self.bn = nn.BatchNorm1d(self.attr_num)
         self.use_region_split = cfg_clip['USE_REGION_SPLIT'] #bool
         self.use_mmformer = cfg_model['USE_MULTIMODAL_TRANSFORMER']
-        fusion_len = self.attr_num + 257 + cfg_clip['TEXT_PROMPT_NUM']
+        self.fusion_len = self.attr_num + 257 + cfg_clip['TEXT_PROMPT_NUM']
+        self.fusion_len2 = 1 + 256 + cfg_clip['VISUAL_PROMPT_NUM'] + cfg_clip['REGION_SPLIT_NUM'] + cfg_clip['VISUAL_PROMPT_NUM']
 
         if not self.use_mmformer:
             print('Without MM-former, Using MLP Instead')
-            self.linear_layer = nn.Linear(fusion_len, self.attr_num)
+            self.linear_layer = nn.Linear(self.fusion_len, self.attr_num)
         else:
             self.blocks = vit.blocks[-cfg_model['MM_LAYERS_NUM']:]
 

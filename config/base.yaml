@@ -1,10 +1,10 @@
 CLIP:
-  SAVED_DIR: "PA100k_Checkpoint.pth"
   PRETRAINED_ViT_NAME: "ViT-L/14"
   VISUAL_PROMPT_NUM: 50
   TEXT_PROMPT_NUM: 3
   USE_GLOBAL_LOCAL_SIMILARITY: True #https://openaccess.thecvf.com/content/ICCV2023/html/Abdelfattah_CDUL_CLIP-Driven_Unsupervised_Learning_for_Multi-Label_Image_Classification_ICCV_2023_paper.html
   USE_TEXT_PROMPT: True
+  USE_VISUAL_PROMPT: True
   GLOBAL_LOCAL_SIMILARITY_THRESHOLD: 0.5
   USE_REGION_SPLIT: True #Region-aware Prompt parameters
   REGION_SPLIT_NUM: 4 #Region-aware Prompt parameters

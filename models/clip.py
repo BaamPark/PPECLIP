@@ -300,7 +300,7 @@ class VisionTransformer(nn.Module):#ViTB-32 32,768,12,12,512
         self.ln_pre = LayerNorm(width)
         row_patch_num = (input_resolution // patch_size)
         
-        base_part_row_num = int(row_patch_num // cfg_clip['REGION_SPLIT_NUM']) + int(cfg_clip['REGION_SPLIT_OVERLAPPING_ROW_NUM'] // 2)#假设div_num为4 则part_row_num = [5,6,6,5] 0-4 3-8 7-12 11-15
+        base_part_row_num = 0 if cfg_clip['REGION_SPLIT_NUM'] == 0 else int(row_patch_num // cfg_clip['REGION_SPLIT_NUM']) + int(cfg_clip['REGION_SPLIT_OVERLAPPING_ROW_NUM'] // 2)
         self.part_row_num = [base_part_row_num+int(cfg_clip['REGION_SPLIT_OVERLAPPING_ROW_NUM']//2) if row!=0 and row!=cfg_clip['REGION_SPLIT_NUM']-1 else base_part_row_num for row in range(cfg_clip['REGION_SPLIT_NUM'])]
         self.part_num = [part_row * row_patch_num for part_row in self.part_row_num] # 80个token
         if cfg_clip['USE_REGION_SPLIT'] :
