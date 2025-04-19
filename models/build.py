@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn as nn
 from models.promptpar import TransformerClassifier
+from models.MM_fusion_layer import LinearProbe
 from models.clip_utils import load
 from models.clip import build_clip
 from utils.config import get_config
@@ -21,7 +22,12 @@ def build_model():
             model = TransformerClassifier(clip_model=clip_model)
             
             # model.load_state_dict(checkpoint['model_state_dict'], strict=False)
-
+    elif cfg['MODEL']['NAME'] == 'linaer_probe':
+         clip_model, ViT_preprocess = load(name=cfg['CLIP']['PRETRAINED_ViT_NAME'], 
+                                              device='cuda',
+                                              download_root='data')
+         
+         model = LinearProbe(clip_model=clip_model)
     return model, clip_model
 
 
