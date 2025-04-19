@@ -5,7 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from utils.model_utils import ratio2weight
+from utils.config import get_config
 
+cfg = get_config()
 
 class CEL_Sigmoid(nn.Module):
     def __init__(self, sample_weight=None, size_average=True, attr_idx=None):
@@ -27,7 +29,7 @@ class CEL_Sigmoid(nn.Module):
                 loss = loss[:, self.attr_idx]
             else:
                 weight = ratio2weight(targets_mask, self.sample_weight)
-            loss = (loss * weight.cuda())
+            loss = (loss * weight.to(f"cuda:{cfg['TRAINER']['DEVICES']}"))
 
         loss = loss.sum() / batch_size if self.size_average else loss.sum()
 

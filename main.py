@@ -27,7 +27,7 @@ def main():
     logger = TensorBoardLogger("lightning_logs", name=args.logdir)
     trainer = Trainer(
         accelerator=cfg["TRAINER"]["ACCELERATOR"],
-        devices=cfg["TRAINER"]["DEVICES"],
+        devices=[cfg["TRAINER"]["DEVICES"]],
         max_epochs=cfg["HYPERPARAM"]["NUM_EPOCH"],
         logger=logger
     )

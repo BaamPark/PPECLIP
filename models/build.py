@@ -15,7 +15,7 @@ cfg = get_config()
 def build_model():
     if cfg['MODEL']['NAME'] == 'base':
             clip_model, ViT_preprocess = load(name=cfg['CLIP']['PRETRAINED_ViT_NAME'], 
-                                              device='cuda',
+                                              device=f"cuda:{cfg['TRAINER']['DEVICES']}",
                                               download_root='data')
             
             # clip_model = build_clip(checkpoint['clip_model'])
@@ -24,7 +24,7 @@ def build_model():
             # model.load_state_dict(checkpoint['model_state_dict'], strict=False)
     elif cfg['MODEL']['NAME'] == 'linaer_probe':
          clip_model, ViT_preprocess = load(name=cfg['CLIP']['PRETRAINED_ViT_NAME'], 
-                                              device='cuda',
+                                              device=f"cuda:{cfg['TRAINER']['DEVICES']}",
                                               download_root='data')
          
          model = LinearProbe(clip_model=clip_model)

@@ -18,7 +18,7 @@ class TransformerClassifier(nn.Module):
         self.norm = vit.norm
         self.weight_layer = nn.ModuleList([nn.Linear(cfg_model['TEXT_DIMENSION'], 1) for i in range(self.attr_num)])
         self.dim = cfg_model['TEXT_DIMENSION']
-        self.text = tokenize(cfg['ATTRIBUTES']).to("cuda")
+        self.text = tokenize(cfg['ATTRIBUTES']).to(f"cuda:{cfg['TRAINER']['DEVICES']}")
         self.bn = nn.BatchNorm1d(self.attr_num)
         self.use_region_split = cfg_clip['USE_REGION_SPLIT'] #bool
         self.use_mmformer = cfg_model['USE_MULTIMODAL_TRANSFORMER']
@@ -33,7 +33,7 @@ class TransformerClassifier(nn.Module):
     def forward(self,imgs,clip_model):
         b_s=imgs.shape[0]
         clip_image_features,all_class,attenmap=clip_model.visual(imgs.type(clip_model.dtype))
-        text_features = clip_model.encode_text(self.text).to("cuda").float()
+        text_features = clip_model.encode_text(self.text).to(f"cuda:{cfg['TRAINER']['DEVICES']}").float()
         if self.use_region_split:
             final_similarity,logits_per_image = clip_model.forward_aggregate(all_class,text_features)
         else : 
