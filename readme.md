@@ -16,4 +16,6 @@ data
 - Download Pre-trained ViT through https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth
 - download json
 - run `python tools/make_labelmat.py` to get pkl
-- 
+
+
+This work is Unified Prompt Tuning

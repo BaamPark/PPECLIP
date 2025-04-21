@@ -325,6 +325,10 @@ class VisionTransformer(nn.Module):#ViTB-32 32,768,12,12,512
         x = x.permute(1, 0, 2)  # NLD -> LND
         x,all_class,attnmap = self.transformer(x)
         x = x.permute(1, 0, 2)  # LND -> NLD   
+        
+        if cfg['MODEL']['NAME'] == 'TWO_TOWER':
+            x = self.ln_post(x[:, 0, :])
+        
         if self.proj is not None:
             x = x @ self.proj
             if all_class is not None:
