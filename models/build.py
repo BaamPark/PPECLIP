@@ -1,5 +1,5 @@
 import torch.nn as nn
-from models.MM_fusion_layer import LinearProbe, TwoTower, PromptPAR
+from models.MM_fusion_layer import LinearProbe, TwoTower, PromptPAR, CrossFormer
 from models.clip_utils import load
 from models.clip import build_clip
 from utils.config import get_config
@@ -32,6 +32,14 @@ def build_model():
                                               download_root='data')
          
          model = TwoTower(clip_model=clip_model)
+
+    elif cfg['MODEL']['NAME'] == 'CROSS_FORMER':
+         clip_model, ViT_preprocess = load(name=cfg['CLIP']['PRETRAINED_ViT_NAME'], 
+                                              device=f"cuda:{cfg['TRAINER']['DEVICES']}",
+                                              download_root='data')
+         
+         model = CrossFormer(clip_model=clip_model)
+
     return model, clip_model
 
 

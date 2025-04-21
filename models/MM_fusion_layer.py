@@ -63,9 +63,7 @@ class LinearProbe(nn.Module):
         super().__init__()
         self.attr_num = cfg_model['ATTRIBUTE_NUM']
         self.word_embed = nn.Linear(clip_model.visual.output_dim, cfg_model['TEXT_DIMENSION'])
-        vit = vit_base()
-        vit.load_param(cfg_model['PRETRAINED_DIR'])
-        self.norm = vit.norm
+        self.norm = nn.LayerNorm(cfg_model['TEXT_DIMENSION'])
         self.weight_layer = nn.ModuleList([nn.Linear(cfg_model['TEXT_DIMENSION'], 1) for i in range(self.attr_num)])
         self.dim = cfg_model['TEXT_DIMENSION']
         self.text = tokenize(cfg['ATTRIBUTES']).to(f"cuda:{cfg['TRAINER']['DEVICES']}")
@@ -117,3 +115,58 @@ class TwoTower(nn.Module):
         logits = logit_scale * visual_feature @ textual_features.T  
 
         return logits, None
+
+
+class CrossAttentionFusion(nn.Module):
+    """
+    Pure multi‑head cross‑attention.
+    • Q  : attribute prototypes  [B, C, D]
+    • K,V: visual tokens        [B, T, D]
+    returns cross‑attended attrs [B, C, D]
+    """
+    def __init__(self, dim: int, heads: int = 8):
+        super().__init__()
+        self.attn = nn.MultiheadAttention(dim, heads, batch_first=True)
+        self.ffn  = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, dim * 4),
+            nn.GELU(),
+            nn.Linear(dim * 4, dim)
+        )
+
+    def forward(self, txt_attr: torch.Tensor, vis_tokens: torch.Tensor):
+        txt_attr   = txt_attr.float()
+        vis_tokens = vis_tokens.float()
+        fused, _ = self.attn(txt_attr, vis_tokens, vis_tokens)  # Q,K,V
+        fused = fused + txt_attr                                # residual
+        return self.ffn(fused)                                  # LN‑FFN
+# ─────────────────────────────────────────────────────────────
+class CrossFormer(nn.Module):
+    def __init__(self, clip_model):
+        super().__init__()
+        self.clip = clip_model
+        self.attr_num = cfg_model['ATTRIBUTE_NUM']
+        self.dim      = cfg_model['TEXT_DIMENSION']
+
+        self.word_embed = nn.Linear(clip_model.visual.output_dim, self.dim)
+        self.text_toks  = tokenize(cfg['ATTRIBUTES']).to(f"cuda:{cfg['TRAINER']['DEVICES']}")
+
+        self.fusion  = CrossAttentionFusion(self.dim, heads=cfg_model['NUM_CROSS_ATTENTION_HEAD'])
+        self.heads = nn.ModuleList(
+            [nn.Linear(self.dim, 1) for _ in range(self.attr_num)]
+        )
+        self.bn = nn.BatchNorm1d(self.attr_num)
+
+    # ---------------------------------------------------------
+    def forward(self, imgs, clip_model=None):
+        clip_model = self.clip if clip_model is None else clip_model
+        B = imgs.size(0)
+
+        vis_tokens, _, _ = clip_model.visual(imgs.type(clip_model.dtype))
+        txt_proto = self.word_embed(
+            clip_model.encode_text(self.text_toks).float()
+        ).unsqueeze(0).expand(B, -1, -1)          # [B,C,D]
+
+        fused = self.fusion(txt_proto, vis_tokens) # [B,C,D]
+        logits = torch.cat([self.heads[i](fused[:, i, :]) for i in range(self.attr_num)], dim=1)
+        return self.bn(logits), None
