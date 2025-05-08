@@ -1,21 +1,22 @@
 CLIP:
   PRETRAINED_ViT_NAME: "ViT-L/14"
-  VISUAL_PROMPT_NUM: 50
-  TEXT_PROMPT_NUM: 3
-  USE_GLOBAL_LOCAL_SIMILARITY: True #https://openaccess.thecvf.com/content/ICCV2023/html/Abdelfattah_CDUL_CLIP-Driven_Unsupervised_Learning_for_Multi-Label_Image_Classification_ICCV_2023_paper.html
-  USE_TEXT_PROMPT: True
   USE_VISUAL_PROMPT: True
-  GLOBAL_LOCAL_SIMILARITY_THRESHOLD: 0.5
-  USE_REGION_SPLIT: True #Region-aware Prompt parameters
-  REGION_SPLIT_NUM: 4 #Region-aware Prompt parameters
-  REGION_SPLIT_OVERLAPPING_ROW_NUM: 2 #Region-aware Prompt parameters
+  VISUAL_PROMPT_NUM: 50
   VISUAL_PROMPT_DEPTH: 24
+  USE_TEXT_PROMPT: True
+  TEXT_PROMPT_NUM: 3
+  TEXT_PROMPT_DEPTH: 12 #max 12
+  USE_GLOBAL_LOCAL_SIMILARITY: False #https://openaccess.thecvf.com/content/ICCV2023/html/Abdelfattah_CDUL_CLIP-Driven_Unsupervised_Learning_for_Multi-Label_Image_Classification_ICCV_2023_paper.html
+  GLOBAL_LOCAL_SIMILARITY_THRESHOLD: 0.5
+  USE_REGION_SPLIT: False #Region-aware Prompt parameters
+  REGION_SPLIT_NUM: 0 #Region-aware Prompt parameters
+  REGION_SPLIT_OVERLAPPING_ROW_NUM: 2 #Region-aware Prompt parameters
   USE_VISUAL_MASK: True
   PARAMETERS_TO_BE_UPDATED: ["prompt_deep", "prompt_text_deep", "part_class_embedding", "agg_bn", "softmax_model"]
 
 MODEL:
   NAME: 'base'
-  ATTRIBUTE_NUM: 15
+  ATTRIBUTE_NUM: 12
   PRETRAINED_DIR: 'data/jx_vit_base_p16_224-80ecf9dd.pth' #ViT
   TEXT_DIMENSION: 768
   USE_MULTIMODAL_TRANSFORMER: True
@@ -25,22 +26,19 @@ MODEL:
 
 DATASET:
   NAME: 'PPEmultilabelDataset'
-  PPE_MAPS: {'gc':0, 'ga':1, 'gi':2, 'pr':3, 'gg':4, 'fc':5, 'ea':6, 'nc':7, 'rc':8, 'ma':9, 'hchc':10, 'hcha':11, 'haha':12, 'hc':13, 'ha':14}
-  TRAIN_LABEL_PATH: "data/labels/attribute_label_split_train_0303_sgIsEa.json"
-  VAL_LABEL_PATH: "data/labels/attribute_label_test_0303_sgIsEa.json"
-  TEST_LABEL_PATH: "data/labels/attribute_label_test_0303_sgIsEa.json"
-  TRAIN_LABEL_MAT: "dataset/train_labels.pkl"
-  VAL_LABEL_MAT: "dataset/val_labels.pkl"
+  PPE_MAPS: {'gc':0, 'ga':1, 'gi':2, 'pr':3, 'gg':4, 'fc':5, 'ea':6, 'nc':7, 'rc':8, 'ma':9, 'hc':10, 'ha':11}
+  TRAIN_LABEL_PATH: "data/labels/attribute_label_split_train_0429_attr3432.json"
+  VAL_LABEL_PATH: "data/labels/attribute_label_split_val_0429_attr3432.json"
+  TEST_LABEL_PATH: "data/labels/attribute_label_test_0429_attr3432.json"
   INPUT_IMG_SIZE: [224,224]
   RANDOM_ROTATION_RANGE: [-90, 90]
   PROB: 0.5 # random horizontal flip
   RE_PROB: 0.0
-  TRAIN_LABEL_MATRIX_DIR: 'data/label_mat/train_labels.pkl'
-  TEST_LABEL_MATRIX_DIR: 'data/label_mat/val_labels.pkl'
 
 TRAINER:
   ACCELERATOR: "gpu"
   DEVICES: 1
+  CHECKPOINT: "lightning_logs/12cls_nosplit_correct/version_0/checkpoints/epoch=19-step=46360.ckpt"
 
 HYPERPARAM:
   # OPTIMIZER_NAME: 'AdamW'
@@ -65,9 +63,6 @@ ATTRIBUTES: [
     'A person wearing an N95 mask',
     'A person wearing a regular mask',
     'A person not wearing a mask',
-    'A person with two visible hands wearing two gloves',
-    'A person with one visible hand wearing one glove',
-    'A person with two visible hands wearing no gloves',
-    'A person with one visible glove, the other hand not visible',
-    'A person with one visible hand, the other hand not visible'
+    'A person with two blue gloves',
+    'A person with a bare hand'
 ]

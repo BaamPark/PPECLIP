@@ -12,7 +12,7 @@ import numpy as np
 cfg = get_config()
 
 class LightningModel(LightningModule):
-    def __init__(self):
+    def __init__(self, sample_weight):
         super(LightningModel, self).__init__()
         model, clip = build_model() #model represents VLM
         model_params, clip_params = freeze_model(model, clip)
@@ -20,7 +20,7 @@ class LightningModel(LightningModule):
         self.clip = clip
         self.model_params = model_params
         self.clip_params = clip_params
-        self.criterion = make_loss()
+        self.criterion = make_loss(sample_weight)
         self.automatic_optimization = False
         self.validation_step_outputs = {"target": [], 
                                         "output": []}
@@ -114,6 +114,7 @@ class LightningModel(LightningModule):
         y_pred = self.validation_step_outputs["output"] #[[0.3, 0.1, 0.6], [0.2, 0.7, 0.1]]
         y_true = self.validation_step_outputs["target"] #[2, 1]
         f1 = MultilabelF1Score(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], threshold=0.5, average=None).to(self.device) #https://lightning.ai/docs/torchmetrics/stable/classification/f1_score.html#:~:text=target)%0Atensor(%5B0.6667%2C%200.6667%2C%201.0000%5D)-,Example%20(preds%20is%20float%20tensor)%3A,-%3E%3E%3E
+        f1_weighted = MultilabelF1Score(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], threshold=0.5, average="weighted").to(self.device)
         auroc = MultilabelAUROC(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
         recall = MultilabelRecall(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
         specificity = MultilabelSpecificity(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
@@ -121,19 +122,21 @@ class LightningModel(LightningModule):
         # Compute metrics
         y_true = y_true.to(torch.long)
         F1 = f1(y_pred, y_true)
+        F1_WEIGHTED = f1_weighted(y_pred, y_true)
         AUROC = auroc(y_pred, y_true)
         RECALL = recall(y_pred, y_true)
         SPECIFICITY = specificity(y_pred, y_true)
         PRECISION = precision(y_pred, y_true)
 
-        for i, (each_f1, each_auroc, each_recall, each_specificity, each_precision) in enumerate(zip(F1, AUROC, RECALL, SPECIFICITY, PRECISION)):
-            self.log(f"val_F1_cls{i}", each_f1)
-            # self.log(f"val_auc_cls{i}", each_auroc)
-            self.log(f"val_rec_cls{i}", each_recall)
-            # self.log(f"val_spe_cls{i}", each_specificity)
-            self.log(f"val_pre_cls{i}", each_precision)
+        # for i, (each_f1, each_auroc, each_recall, each_specificity, each_precision) in enumerate(zip(F1, AUROC, RECALL, SPECIFICITY, PRECISION)):
+        #     self.log(f"val_F1_cls{i}", each_f1)
+        #     # self.log(f"val_auc_cls{i}", each_auroc)
+        #     self.log(f"val_rec_cls{i}", each_recall)
+        #     # self.log(f"val_spe_cls{i}", each_specificity)
+        #     self.log(f"val_pre_cls{i}", each_precision)
 
-        self.log("val_mean_F1", F1.mean())
+        self.log("val_mean_F1", F1.mean()) #macro average
+        self.log("val_mean_F1_weighted", F1_WEIGHTED)
         self.log("val_mean_auc", AUROC.mean())
         self.log("val_mean_rec", RECALL.mean())
         self.log("val_mean_spe", SPECIFICITY.mean())
@@ -147,6 +150,7 @@ class LightningModel(LightningModule):
         y_pred = self.validation_step_outputs["output"] #[[0.3, 0.1, 0.6], [0.2, 0.7, 0.1]]
         y_true = self.validation_step_outputs["target"] #[2, 1]
         f1 = MultilabelF1Score(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], threshold=0.5, average=None).to(self.device) #https://lightning.ai/docs/torchmetrics/stable/classification/f1_score.html#:~:text=target)%0Atensor(%5B0.6667%2C%200.6667%2C%201.0000%5D)-,Example%20(preds%20is%20float%20tensor)%3A,-%3E%3E%3E
+        f1_weighted = MultilabelF1Score(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], threshold=0.5, average="weighted").to(self.device)
         auroc = MultilabelAUROC(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
         recall = MultilabelRecall(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
         specificity = MultilabelSpecificity(num_labels=cfg["MODEL"]["ATTRIBUTE_NUM"], average=None).to(self.device)
@@ -154,32 +158,34 @@ class LightningModel(LightningModule):
         # Compute metrics
         y_true = y_true.to(torch.long)
         F1 = f1(y_pred, y_true)
+        F1_WEIGHTED = f1_weighted(y_pred, y_true)
         AUROC = auroc(y_pred, y_true)
         RECALL = recall(y_pred, y_true)
         SPECIFICITY = specificity(y_pred, y_true)
         PRECISION = precision(y_pred, y_true)
 
-        for i, (each_f1, each_auroc, each_recall, each_specificity, each_precision) in enumerate(zip(F1, AUROC, RECALL, SPECIFICITY, PRECISION)):
-            self.log(f"val_F1_cls{i}", each_f1)
-            # self.log(f"val_auc_cls{i}", each_auroc)
-            self.log(f"val_rec_cls{i}", each_recall)
-            # self.log(f"val_spe_cls{i}", each_specificity)
-            self.log(f"val_pre_cls{i}", each_precision)
+        # for i, (each_f1, each_auroc, each_recall, each_specificity, each_precision) in enumerate(zip(F1, AUROC, RECALL, SPECIFICITY, PRECISION)):
+        #     self.log(f"val_F1_cls{i}", each_f1)
+        #     # self.log(f"val_auc_cls{i}", each_auroc)
+        #     self.log(f"val_rec_cls{i}", each_recall)
+        #     # self.log(f"val_spe_cls{i}", each_specificity)
+        #     self.log(f"val_pre_cls{i}", each_precision)
 
         self.log("val_mean_F1", F1.mean())
+        self.log("val_mean_F1_weighted", F1_WEIGHTED)
         self.log("val_mean_auc", AUROC.mean())
         self.log("val_mean_rec", RECALL.mean())
         self.log("val_mean_spe", SPECIFICITY.mean())
         self.log("val_mean_pre", PRECISION.mean())
 
-        y_pred = y_pred.cpu().numpy()
-        y_true = y_true.cpu().numpy()
+        # y_pred = y_pred.cpu().numpy()
+        # y_true = y_true.cpu().numpy()
 
-        pred_gt = np.concatenate([y_pred, y_true], axis=1)
-        columns = list(cfg["DATASET"]["PPE_MAPS"].keys())
-        pred_columns, gt_columns = [f'pred_{col}' for col in columns], [f'gt_{col}' for col in columns]
-        df = pd.DataFrame(pred_gt, columns=pred_columns+gt_columns)
-        df.to_excel('results/pred_gt/predictions.xlsx', index=False)
+        # pred_gt = np.concatenate([y_pred, y_true], axis=1)
+        # columns = list(cfg["DATASET"]["PPE_MAPS"].keys())
+        # pred_columns, gt_columns = [f'pred_{col}' for col in columns], [f'gt_{col}' for col in columns]
+        # df = pd.DataFrame(pred_gt, columns=pred_columns+gt_columns)
+        # df.to_excel('results/pred_gt/predictions.xlsx', index=False)
     
     def configure_optimizers(self): #https://pytorch-lightning.readthedocs.io/en/1.5.10/common/optimizers.html#use-multiple-optimizers-like-gans:~:text=and%20step.-,Use%20multiple%20optimizers%20(like%20GANs),-To%20use%20multiple
         clip_optimizer = make_optimizer(self.clip_params, cfg['HYPERPARAM']['CLIP_LR'], cfg['HYPERPARAM']['CLIP_WEIGHT_DECAY'])

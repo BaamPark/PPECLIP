@@ -10,3 +10,4 @@ results/
 launch.json
 run.sh
 !base.yaml
+!12cls_nosplit.yaml

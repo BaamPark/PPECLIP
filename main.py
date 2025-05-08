@@ -21,15 +21,16 @@ import torch
 def main():
     cfg = get_config()
 
-    train_loader, val_loader, test_loader = make_dataloader()
-    model = LightningModel()
+    train_loader, val_loader, test_loader, sample_weight = make_dataloader()
+    model = LightningModel(sample_weight)
 
     logger = TensorBoardLogger("lightning_logs", name=args.logdir)
     trainer = Trainer(
         accelerator=cfg["TRAINER"]["ACCELERATOR"],
         devices=[cfg["TRAINER"]["DEVICES"]],
         max_epochs=cfg["HYPERPARAM"]["NUM_EPOCH"],
-        logger=logger
+        logger=logger,
+        enable_checkpointing=False
     )
 
     if not args.test:

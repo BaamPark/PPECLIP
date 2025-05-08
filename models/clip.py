@@ -482,7 +482,7 @@ class CLIP(nn.Module):
         logit_scale = self.logit_scale.exp()
         logits_per_image = logit_scale * all_class @ text_features.t()
         
-        similarity = self.softmax_model(logits_per_image)
+        similarity = self.softmax_model(logits_per_image) #SoftmaxWithTemperature()
         global_similarity = similarity[:,0]
         local_similarity = similarity[:,1:]                
         for logits_local in local_similarity:

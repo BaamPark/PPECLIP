@@ -43,11 +43,7 @@ def build_model():
     return model, clip_model
 
 
-def make_loss():
-    with open(cfg['DATASET']['TRAIN_LABEL_MAT'], "rb") as f:
-        labels = pickle.load(f)
-
-    sample_weight = labels.numpy().mean(0)
+def make_loss(sample_weight):
     criterion = CEL_Sigmoid(sample_weight, attr_idx=cfg['MODEL']['ATTRIBUTE_NUM'])
     return criterion
 

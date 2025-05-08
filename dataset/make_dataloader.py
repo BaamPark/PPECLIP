@@ -1,4 +1,3 @@
-from dataset.PPEDataset import *
 import torchvision.transforms as T
 from torch.utils.data import DataLoader
 import importlib
@@ -25,16 +24,11 @@ def make_dataloader():
                         T.Normalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225])])
 
-    module = importlib.import_module('dataset.PPEDataset')
-    dataset_cls = getattr(module, dataset_cfg["NAMES"])
+    module = importlib.import_module(f'dataset.Dataset')
+    dataset_cls = getattr(module, dataset_cfg["NAME"])
     train_data = dataset_cls(dataset_cfg["TRAIN_LABEL_PATH"],train_transform)
     val_data = dataset_cls(dataset_cfg["VAL_LABEL_PATH"],val_transform)
     test_data = dataset_cls(dataset_cfg["TEST_LABEL_PATH"],val_transform)
-
-    # if dataset_cfg["NAMES"] == "PPEmultilabelDataset":
-    #     train_data = PPEmultilabelDataset(dataset_cfg["TRAIN_LABEL_PATH"],train_transform)
-    #     val_data = PPEmultilabelDataset(dataset_cfg["VAL_LABEL_PATH"],val_transform)
-    #     test_data = PPEmultilabelDataset(dataset_cfg["TEST_LABEL_PATH"],val_transform)
 
     train_loader = DataLoader(
             train_data,
@@ -60,4 +54,6 @@ def make_dataloader():
             pin_memory=True,
         )
     
-    return train_loader, val_loader, test_loader
+    sample_weight = train_data.label.mean(0)
+    
+    return train_loader, val_loader, test_loader, sample_weight
